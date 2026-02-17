@@ -14,6 +14,7 @@ export async function handler(event, context) {
       return { statusCode: 400, body: "Missing email" };
     }
 
+    
     // Prepare HubSpot properties
     const properties = [
       { property: "risk_score", value: data.riskScore || "" },

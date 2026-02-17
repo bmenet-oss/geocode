@@ -8,6 +8,7 @@ function storeUTMs() {
 }
 storeUTMs();
 
+
 // 2️⃣ Render calculator after DOM loads
 document.addEventListener("DOMContentLoaded", function() {
     const root = document.getElementById("calculator-root");

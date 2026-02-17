@@ -15,6 +15,7 @@ export async function handler(event) {
       }
     );
 
+    
     const data = await res.json();
     const crimes = data?.results || [];
 

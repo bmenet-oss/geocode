@@ -22,6 +22,7 @@ exports.handler = async function(event) {
 
   // SIMPLE TEST RESPONSE (to confirm function works)
 
+  
   return {
     statusCode: 200,
     headers,
