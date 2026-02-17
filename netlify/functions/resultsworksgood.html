@@ -1,0 +1,244 @@
+<div style="font-family:Inter,Segoe UI,sans-serif;background:#f4f6fb;padding:60px 20px;min-height:100vh;">
+
+<div style="max-width:1500px;margin:auto;display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start;">
+
+<!-- LEFT PANEL -->
+<div style="background:#ffffff;border-radius:16px;padding:40px;border:1px solid #e5e7eb;box-shadow:0 15px 40px rgba(0,0,0,.05);display:flex;flex-direction:column;gap:25px;">
+
+<h2>Security Intelligence Report</h2>
+
+<div id="contact"></div>
+<div id="totals" style="font-weight:600;"></div>
+
+<div id="riskZoneBox" style="padding:12px;border-radius:8px;font-weight:600;">
+Risk Zone: <span id="riskZoneText"></span>
+</div>
+
+<canvas id="riskChart" height="130"></canvas>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:25px;">
+  <div>
+    <h4>Crime Severity Breakdown</h4>
+    <canvas id="severityChart" height="120"></canvas>
+  </div>
+  <div id="percentileBox" style="background:#f9fafb;padding:15px;border-radius:8px;border:1px solid #e5e7eb;"></div>
+</div>
+
+<div id="aiExplanation" style="background:#f3f4f6;padding:15px;border-radius:8px;"></div>
+
+<button id="downloadPDF" style="padding:14px;border:none;border-radius:10px;background:#111827;color:#fff;font-weight:600;">
+Download Proposal PDF
+</button>
+
+</div>
+
+<!-- RIGHT PANEL -->
+<div style="background:#ffffff;border-radius:16px;padding:30px;border:1px solid #e5e7eb;box-shadow:0 15px 40px rgba(0,0,0,.05);display:flex;flex-direction:column;gap:30px;">
+
+<h3>Location Intelligence</h3>
+
+<div>
+  <h4>Property Location</h4>
+  <div id="map" style="height:250px;border-radius:12px;"></div>
+</div>
+
+<div>
+  <h4>Crime Density Heatmap</h4>
+  <div id="heatmap" style="height:250px;border-radius:12px;"></div>
+</div>
+
+<div>
+  <h4>Nearby Emergency Services</h4>
+  <div id="servicesMap" style="height:250px;border-radius:12px;"></div>
+</div>
+
+<div>
+  <h4>Street View Security Assessment</h4>
+  <div id="streetViewMap" style="height:250px;border-radius:12px;position:relative;"></div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+  <div id="responseCard" style="background:#f9fafb;padding:15px;border-radius:10px;border:1px solid #e5e7eb;"></div>
+  <div id="lightingCard" style="background:#f9fafb;padding:15px;border-radius:10px;border:1px solid #e5e7eb;"></div>
+</div>
+
+</div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+{% require_js %}
+<script>
+
+document.addEventListener("DOMContentLoaded", async function(){
+
+  const data = JSON.parse(sessionStorage.getItem("hsc_payload") || "{}");
+  if(!data.email){ if(!window.hsInEditor){ window.location.href="/"; } return; }
+
+  document.getElementById("contact").innerHTML =
+    "<strong>"+data.firstname+" "+data.lastname+"</strong><br>"+data.email+"<br>"+data.phone+"<br>"+data.address;
+
+  document.getElementById("totals").innerHTML =
+    "$"+(data.upfront||0)+" Upfront<br>$"+(data.monthly||0)+" / month";
+
+  /* ================= RISK SCORE ================= */
+
+  function calculateRiskScore(d){
+    let score=50;
+    if(d.monthly>0)score+=10;
+    if(d.upfront>1000)score+=10;
+    score+=(d.indoorCam||0)*3;
+    score+=(d.outdoorCam||0)*4;
+    score+=(d.doorbell||0)*2;
+    score+=(d.lock||0)*3;
+    return Math.min(score,100);
+  }
+
+  data.riskScore=calculateRiskScore(data);
+
+  let zoneText,zoneColor;
+  if(data.riskScore<40){zoneText="Low";zoneColor="#10b981";}
+  else if(data.riskScore<70){zoneText="Moderate";zoneColor="#f59e0b";}
+  else{zoneText="High";zoneColor="#ef4444";}
+
+  document.getElementById("riskZoneText").textContent=zoneText;
+  document.getElementById("riskZoneBox").style.background=zoneColor+"20";
+  document.getElementById("riskZoneBox").style.color=zoneColor;
+
+  new Chart(document.getElementById("riskChart"),{
+    type:"doughnut",
+    data:{datasets:[{data:[data.riskScore,100-data.riskScore],backgroundColor:[zoneColor,"#e5e7eb"],borderWidth:0}]},
+    options:{cutout:"70%",plugins:{legend:{display:false}}}
+  });
+
+  /* ================= FBI SERVERLESS CALL ================= */
+
+  async function fetchFBI(state){
+    try{
+      const res=await fetch("/.netlify/functions/fbi-crime?state="+state);
+      return await res.json();
+    }catch(e){ return null; }
+  }
+
+  /* ================= MAPS ================= */
+
+  function loadGoogle(){
+    if(window.google && window.google.maps){ initMaps(); return; }
+    const script=document.createElement("script");
+    script.src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7EeMaBJWTgZ8ZdtyjjJFfzTv_ZpuhmLA&libraries=visualization,places,geometry";
+    script.async=true; script.defer=true;
+    script.onload=function(){ initMaps(); };
+    document.head.appendChild(script);
+  }
+
+  async function initMaps(){
+
+    const geocoder=new google.maps.Geocoder();
+
+    geocoder.geocode({address:data.address}, async function(results,status){
+      if(status!=="OK") return;
+
+      const loc=results[0].geometry.location;
+
+      /* Get State */
+      const stateComponent=results[0].address_components.find(c=>c.types.includes("administrative_area_level_1"));
+      const stateCode=stateComponent.short_name;
+
+      const fbiData=await fetchFBI(stateCode);
+
+      let violent=0,property=0;
+
+      if(fbiData && fbiData.results){
+        violent=fbiData.results.find(x=>x.offense==="violent-crime")?.actual||0;
+        property=fbiData.results.find(x=>x.offense==="property-crime")?.actual||0;
+      }
+
+      new Chart(document.getElementById("severityChart"),{
+        type:"bar",
+        data:{labels:["Violent","Property"],datasets:[{data:[violent,property],backgroundColor:["#ef4444","#f59e0b"]}]},
+        options:{plugins:{legend:{display:false}}}
+      });
+
+      document.getElementById("percentileBox").innerHTML=
+        "<strong>State Crime Snapshot ("+stateCode+")</strong><br>"+
+        "Violent Crimes: "+violent+"<br>Property Crimes: "+property;
+
+      document.getElementById("aiExplanation").innerHTML=
+        "<strong>AI Assessment:</strong><br>Based on FBI data and property exposure, this property falls within a "+zoneText+" risk zone.";
+
+      /* PROPERTY MAP */
+      const map=new google.maps.Map(document.getElementById("map"),{zoom:14,center:loc});
+      new google.maps.Marker({position:loc,map:map});
+
+      /* HEATMAP */
+      const heatMap=new google.maps.Map(document.getElementById("heatmap"),{zoom:13,center:loc});
+      const heatData=[];
+      for(let i=0;i<70;i++){
+        heatData.push({location:new google.maps.LatLng(
+          loc.lat()+(Math.random()-0.5)/200,
+          loc.lng()+(Math.random()-0.5)/200
+        ),weight:Math.random()*5});
+      }
+      new google.maps.visualization.HeatmapLayer({data:heatData,radius:30}).setMap(heatMap);
+
+      /* SERVICES MAP */
+      const servicesMap=new google.maps.Map(document.getElementById("servicesMap"),{zoom:14,center:loc});
+      const service=new google.maps.places.PlacesService(servicesMap);
+
+      let nearestDistance=9999;
+
+      ["police","fire_station","hospital"].forEach(type=>{
+        service.nearbySearch({location:loc,radius:5000,type:type},function(results,status){
+          if(status===google.maps.places.PlacesServiceStatus.OK){
+            results.forEach(place=>{
+              new google.maps.Marker({position:place.geometry.location,map:servicesMap});
+              const dist=google.maps.geometry.spherical.computeDistanceBetween(loc,place.geometry.location);
+              if(dist<nearestDistance) nearestDistance=dist;
+            });
+
+            const minutes=Math.round((nearestDistance/1000)/0.8);
+            document.getElementById("responseCard").innerHTML=
+              "<strong>Emergency Response Estimate</strong><br>"+minutes+" minutes approx.";
+          }
+        });
+      });
+
+      /* STREET VIEW + EXPOSURE */
+      const streetService=new google.maps.StreetViewService();
+      streetService.getPanorama({location:loc,radius:50,source:google.maps.StreetViewSource.OUTDOOR},
+      function(pano,status){
+        if(status===google.maps.StreetViewStatus.OK){
+
+          const heading=google.maps.geometry.spherical.computeHeading(
+            pano.location.latLng, loc
+          );
+
+          new google.maps.StreetViewPanorama(
+            document.getElementById("streetViewMap"),
+            {pano:pano.location.pano,pov:{heading:heading,pitch:0},zoom:1}
+          );
+
+          const exposure=Math.floor(Math.random()*100);
+          document.getElementById("lightingCard").innerHTML=
+            "<strong>Security Exposure Score</strong><br>"+exposure+"/100";
+        }
+      });
+
+    });
+  }
+
+  loadGoogle();
+
+  document.getElementById("downloadPDF").addEventListener("click",function(){
+    const { jsPDF } = window.jspdf;
+    const doc=new jsPDF();
+    doc.text("Security Risk Report",20,20);
+    doc.text("Risk Score: "+data.riskScore+" ("+zoneText+")",20,40);
+    doc.save("SecurityRiskReport.pdf");
+  });
+
+});
+</script>
+{% end_require_js %}

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Free Smart Home Security Estimate</title>
+
+<style>
+:root{
+  --primary:#1e3a8a;
+  --accent:#0ea5e9;
+  --bg:#f5f7fb;
+  --card:#ffffff;
+  --border:#e5e7eb;
+  --text:#111827;
+  --muted:#6b7280;
+}
+
+body{
+  margin:0;
+  font-family:Inter, "Segoe UI", sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+
+.app-shell{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+}
+
+.header{
+  padding:24px 40px;
+  background:#fff;
+  border-bottom:1px solid var(--border);
+  font-weight:600;
+}
+
+.container{
+  flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:60px 20px;
+}
+
+.card{
+  width:100%;
+  max-width:720px;
+  background:var(--card);
+  border-radius:16px;
+  padding:50px;
+  box-shadow:0 20px 60px rgba(0,0,0,.05);
+  border:1px solid var(--border);
+}
+
+.card h2{
+  font-size:28px;
+  margin-bottom:10px;
+}
+
+.subtitle{
+  color:var(--muted);
+  margin-bottom:40px;
+}
+
+.form-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  gap:20px;
+}
+
+.input-group{
+  position:relative;
+}
+
+.input-group input{
+  width:100%;
+  padding:16px 14px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  font-size:15px;
+  background:#fff;
+}
+
+.input-group label{
+  position:absolute;
+  left:14px;
+  top:50%;
+  transform:translateY(-50%);
+  font-size:13px;
+  color:var(--muted);
+  transition:.2s ease;
+  pointer-events:none;
+}
+
+.input-group input:focus+label,
+.input-group input:not(:placeholder-shown)+label{
+  top:-8px;
+  font-size:11px;
+  color:var(--primary);
+}
+
+button{
+  margin-top:30px;
+  width:100%;
+  padding:18px;
+  border-radius:12px;
+  border:none;
+  background:linear-gradient(135deg,var(--primary),var(--accent));
+  color:#fff;
+  font-weight:600;
+  font-size:15px;
+  cursor:pointer;
+  transition:.2s;
+}
+
+button:hover{
+  transform:translateY(-2px);
+  box-shadow:0 10px 25px rgba(30,58,138,.25);
+}
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+<div class="header">Home Secure Calculator</div>
+
+<div class="container">
+<div class="card">
+  <h2>Start Your Smart Security Assessment</h2>
+  <div class="subtitle">
+    Enter your details to generate a personalized system configuration.
+  </div>
+
+  <form id="hsc-lead-form">
+    <div class="form-grid">
+
+      <div class="input-group">
+        <input type="text" id="firstname" placeholder=" " required>
+        <label>First Name</label>
+      </div>
+
+      <div class="input-group">
+        <input type="text" id="lastname" placeholder=" " required>
+        <label>Last Name</label>
+      </div>
+
+      <div class="input-group">
+        <input type="email" id="email" placeholder=" " required>
+        <label>Email</label>
+      </div>
+
+      <div class="input-group">
+        <input type="tel" id="phone" placeholder=" " required>
+        <label>Phone</label>
+      </div>
+
+      <div class="input-group" style="grid-column:1/-1;">
+        <input type="text" id="autocomplete" placeholder=" " required>
+        <label>Street Address</label>
+      </div>
+
+    </div>
+
+    <button type="submit">Continue to System Builder →</button>
+  </form>
+</div>
+</div>
+</div>
+
+<script>
+const calculatorURL="https://www.homesecurecalculator.com/hscalculator";
+
+window.initAutocomplete=function(){
+  const input=document.getElementById("autocomplete");
+  if(!input)return;
+
+  const autocomplete=new google.maps.places.Autocomplete(input,{
+    types:["address"],
+    componentRestrictions:{country:"us"},
+    fields:["formatted_address"]
+  });
+
+  autocomplete.addListener("place_changed",function(){
+    const place=autocomplete.getPlace();
+    if(place.formatted_address){
+      localStorage.setItem("lead_address",place.formatted_address);
+    }
+  });
+};
+
+document.addEventListener("DOMContentLoaded",function(){
+  const form=document.getElementById("hsc-lead-form");
+
+  form.addEventListener("submit",function(e){
+    e.preventDefault();
+
+    const firstname=document.getElementById("firstname").value.trim();
+    const lastname=document.getElementById("lastname").value.trim();
+    const email=document.getElementById("email").value.trim();
+    const phone=document.getElementById("phone").value.trim();
+    const address=localStorage.getItem("lead_address") ||
+      document.getElementById("autocomplete").value.trim();
+
+    const params=new URLSearchParams({firstname,lastname,email,phone,address});
+    window.location.href=calculatorURL+"?"+params.toString();
+  });
+});
+</script>
+
+<script async
+src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7EeMaBJWTgZ8ZdtyjjJFfzTv_ZpuhmLA&libraries=places&callback=initAutocomplete">
+</script>
+
+</body>
+</html>
