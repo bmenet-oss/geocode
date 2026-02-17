@@ -1,0 +1,149 @@
+<div class="hsc-calculator">
+
+  <h2>Configure Your Security System</h2>
+
+  <div class="grid">
+    <select id="tier"></select>
+    <select id="install"></select>
+    <select id="monitoring"></select>
+  </div>
+
+  <div class="grid">
+    <input id="indoorCam" type="number" value="0" placeholder="Indoor Cameras">
+    <input id="outdoorCam" type="number" value="0" placeholder="Outdoor Cameras">
+    <input id="doorbell" type="number" value="0" placeholder="Video Doorbells">
+    <input id="lock" type="number" value="0" placeholder="Smart Locks">
+  </div>
+
+  <div class="totals">
+    <div id="upfront">$0 Upfront</div>
+    <div id="monthly">$0 / month</div>
+  </div>
+
+  <button id="calc-submit">View Report</button>
+
+</div>
+
+{% require_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+
+  function safeRedirect(url){
+    if(!window.hsInEditor){
+      window.location.href = url;
+    }
+  }
+
+  const payload = JSON.parse(sessionStorage.getItem("hsc_full_payload") || "{}");
+
+  if(!payload.email){
+    safeRedirect("/");
+    return;
+  }
+
+  const catalog = {
+    tiers:[
+      {id:"basic",name:"Basic",price:499},
+      {id:"standard",name:"Standard",price:899},
+      {id:"premium",name:"Premium",price:1499}
+    ],
+    install:[
+      {id:"standard",name:"Standard Install",cost:299},
+      {id:"advanced",name:"Advanced Install",cost:499}
+    ],
+    monitoring:[
+      {id:"self",name:"Self Monitoring",monthly:0},
+      {id:"pro",name:"Pro Monitoring",monthly:39}
+    ],
+    devices:{
+      indoorCam:129,
+      outdoorCam:199,
+      doorbell:179,
+      lock:249
+    }
+  };
+
+  function fill(id,list,label){
+    const el=document.getElementById(id);
+    list.forEach(o=>{
+      const opt=document.createElement("option");
+      opt.value=o.id;
+      opt.textContent=label(o);
+      el.appendChild(opt);
+    });
+  }
+
+  fill("tier",catalog.tiers,o=>o.name);
+  fill("install",catalog.install,o=>o.name);
+  fill("monitoring",catalog.monitoring,o=>o.name);
+
+  function calculate(){
+
+    const tier=catalog.tiers.find(x=>x.id===tierSel.value);
+    const inst=catalog.install.find(x=>x.id===installSel.value);
+    const mon=catalog.monitoring.find(x=>x.id===monitorSel.value);
+
+    let upfront=tier.price + inst.cost;
+    let monthly=mon.monthly;
+
+    Object.keys(catalog.devices).forEach(k=>{
+      const qty = Number(document.getElementById(k).value)||0;
+      upfront += qty * catalog.devices[k];
+    });
+
+    window.calcData = { upfront, monthly };
+
+    upfrontEl.textContent = "$" + upfront + " Upfront";
+    monthlyEl.textContent = "$" + monthly + " / month";
+  }
+
+  const tierSel=document.getElementById("tier");
+  const installSel=document.getElementById("install");
+  const monitorSel=document.getElementById("monitoring");
+  const upfrontEl=document.getElementById("upfront");
+  const monthlyEl=document.getElementById("monthly");
+
+  document.querySelectorAll("select,input").forEach(e=>{
+    e.addEventListener("input", calculate);
+  });
+
+  calculate();
+
+  document.getElementById("calc-submit").addEventListener("click", function(){
+
+    const finalPayload = {
+      ...payload,
+      ...window.calcData
+    };
+
+    sessionStorage.setItem("hsc_full_payload", JSON.stringify(finalPayload));
+
+    safeRedirect("/results");
+
+  });
+
+});
+</script>
+{% end_require_js %}
+
+{% require_css %}
+<style>
+.hsc-calculator .grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:12px;
+  margin-bottom:20px;
+}
+.hsc-calculator select,
+.hsc-calculator input{
+  padding:10px;
+}
+.hsc-calculator button{
+  width:100%;
+  padding:14px;
+  background:#2563eb;
+  color:#fff;
+  border:none;
+}
+</style>
+{% end_require_css %}

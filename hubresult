@@ -1,0 +1,65 @@
+<div class="hsc-results">
+
+  <h2>Your Security Report</h2>
+
+  <div id="client-info"></div>
+  <div id="totals"></div>
+  <div id="map" style="height:400px;margin-top:20px;"></div>
+
+</div>
+
+{% require_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+
+  const payload = JSON.parse(sessionStorage.getItem("hsc_full_payload") || "{}");
+
+  if(!payload.email){
+    if(!window.hsInEditor){
+      window.location.href="/";
+    }
+    return;
+  }
+
+  document.getElementById("client-info").innerHTML =
+    payload.firstname + " " + payload.lastname + "<br>" +
+    payload.email + "<br>" +
+    payload.phone + "<br>" +
+    payload.address;
+
+  document.getElementById("totals").innerHTML =
+    "$" + (payload.upfront || 0) + " Upfront<br>" +
+    "$" + (payload.monthly || 0) + " / month";
+
+  function loadGoogle(){
+    const script=document.createElement("script");
+    script.src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7EeMaBJWTgZ8ZdtyjjJFfzTv_ZpuhmLA&callback=initMap";
+    script.async=true;
+    document.head.appendChild(script);
+  }
+
+  window.initMap=function(){
+
+    const geocoder=new google.maps.Geocoder();
+
+    geocoder.geocode({ address: payload.address }, function(results,status){
+
+      if(status!=="OK") return;
+
+      const loc=results[0].geometry.location;
+
+      const map=new google.maps.Map(
+        document.getElementById("map"),
+        {zoom:14,center:loc}
+      );
+
+      new google.maps.Marker({position:loc,map:map});
+
+    });
+  };
+
+  loadGoogle();
+
+});
+</script>
+{% end_require_js %}

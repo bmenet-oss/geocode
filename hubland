@@ -1,0 +1,64 @@
+<div class="hsc-landing">
+
+  <h2>Get Your Free Smart Home Security Estimate</h2>
+
+  <form id="hsc-landing-form">
+
+    <input type="text" id="firstname" placeholder="First Name" required>
+    <input type="text" id="lastname" placeholder="Last Name" required>
+    <input type="email" id="email" placeholder="Email" required>
+    <input type="tel" id="phone" placeholder="Phone" required>
+    <input type="text" id="address" placeholder="Street Address" required>
+
+    <button type="submit">Continue</button>
+
+  </form>
+
+</div>
+
+{% require_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+
+  function safeRedirect(url){
+    if(!window.hsInEditor){
+      window.location.href = url;
+    }
+  }
+
+  document.getElementById("hsc-landing-form").addEventListener("submit", function(e){
+    e.preventDefault();
+
+    const payload = {
+      firstname: document.getElementById("firstname").value.trim(),
+      lastname: document.getElementById("lastname").value.trim(),
+      email: document.getElementById("email").value.trim(),
+      phone: document.getElementById("phone").value.trim(),
+      address: document.getElementById("address").value.trim()
+    };
+
+    sessionStorage.setItem("hsc_full_payload", JSON.stringify(payload));
+
+    safeRedirect("/calculator");
+  });
+
+});
+</script>
+{% end_require_js %}
+
+{% require_css %}
+<style>
+.hsc-landing input {
+  width:100%;
+  padding:12px;
+  margin-bottom:12px;
+}
+.hsc-landing button {
+  width:100%;
+  padding:14px;
+  background:#2563eb;
+  color:#fff;
+  border:none;
+}
+</style>
+{% end_require_css %}
